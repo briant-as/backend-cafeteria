@@ -28,6 +28,10 @@ class ItemPedido(BaseModel):
     cantidad: int
     precio_unitario: float
 
+class NuevoProducto(BaseModel):
+    nombre: str
+    precio: int
+
 class Pedido(BaseModel):
     mesa: int
     items: List[ItemPedido]
@@ -46,6 +50,17 @@ async def obtener_catalogo():
         })
         
     return {"catalogo": lista_productos}
+@app.post("/agregar_producto")
+async def agregar_producto(producto: NuevoProducto):
+    nuevo_prod_db = {
+        "nombre": producto.nombre,
+        "precio": producto.precio
+    }
+    
+    # Guardamos el producto en la colección 'productos'
+    db.collection("productos").add(nuevo_prod_db)
+    
+    return {"status": "éxito", "mensaje": f"Producto {producto.nombre} agregado al catálogo"}
 @app.post("/crear_pedido")
 async def recibir_pedido(pedido: Pedido):
     total_calculado = sum(item.cantidad * item.precio_unitario for item in pedido.items)
