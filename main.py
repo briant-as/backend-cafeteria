@@ -33,8 +33,8 @@ class NuevoProducto(BaseModel):
     precio: int
     descripcion: str = ""
     categoria: str = "Cafetería"
-    lleva_leche: bool = False  # <-- Agregamos tu nueva opción
-
+    lleva_leche: bool = False
+    imagen: str = ""  # <-- Agregamos este campo
 class Pedido(BaseModel):
     mesa: int
     items: List[ItemPedido]
@@ -51,7 +51,8 @@ async def obtener_catalogo():
             "precio": producto_db.get("precio", 0),
             "descripcion": producto_db.get("descripcion", ""),
             "categoria": producto_db.get("categoria", "Cafetería"),
-            "lleva_leche": producto_db.get("lleva_leche", False) # <-- Lo leemos de Firebase
+            "lleva_leche": producto_db.get("lleva_leche", False),
+            "imagen": producto_db.get("imagen", "") # <-- Lo leemos de Firestore
         })
     return {"catalogo": lista_productos}
         
@@ -62,7 +63,8 @@ async def agregar_producto(producto: NuevoProducto):
         "precio": producto.precio,
         "descripcion": producto.descripcion,
         "categoria": producto.categoria,
-        "lleva_leche": producto.lleva_leche  # <-- Lo guardamos en Firebase
+        "lleva_leche": producto.lleva_leche,
+        "imagen": producto.imagen  # <-- Lo guardamos en Firestore
     }
     db.collection("productos").add(nuevo_prod_db)
     return {"status": "éxito", "mensaje": "Producto agregado"}
