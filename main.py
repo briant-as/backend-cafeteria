@@ -33,6 +33,7 @@ class NuevoProducto(BaseModel):
     precio: int
     descripcion: str = ""
     categoria: str = "Cafetería"
+    lleva_leche: bool = False  # <-- Agregamos tu nueva opción
 
 class Pedido(BaseModel):
     mesa: int
@@ -41,7 +42,6 @@ class Pedido(BaseModel):
 @app.get("/obtener_catalogo")
 async def obtener_catalogo():
     referencia = db.collection("productos").stream()
-    
     lista_productos = []
     for doc in referencia:
         producto_db = doc.to_dict()
@@ -50,9 +50,9 @@ async def obtener_catalogo():
             "producto": producto_db.get("nombre", "Sin nombre"),
             "precio": producto_db.get("precio", 0),
             "descripcion": producto_db.get("descripcion", ""),
-            "categoria": producto_db.get("categoria", "Cafetería")
+            "categoria": producto_db.get("categoria", "Cafetería"),
+            "lleva_leche": producto_db.get("lleva_leche", False) # <-- Lo leemos de Firebase
         })
-        
     return {"catalogo": lista_productos}
         
 @app.post("/agregar_producto")
@@ -61,10 +61,11 @@ async def agregar_producto(producto: NuevoProducto):
         "nombre": producto.nombre,
         "precio": producto.precio,
         "descripcion": producto.descripcion,
-        "categoria": producto.categoria
+        "categoria": producto.categoria,
+        "lleva_leche": producto.lleva_leche  # <-- Lo guardamos en Firebase
     }
     db.collection("productos").add(nuevo_prod_db)
-    return {"status": "éxito", "mensaje": "Producto agregado al catálogo"}
+    return {"status": "éxito", "mensaje": "Producto agregado"}
 @app.post("/crear_pedido")
 async def recibir_pedido(pedido: Pedido):
     total_calculado = sum(item.cantidad * item.precio_unitario for item in pedido.items)
