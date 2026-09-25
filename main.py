@@ -1,3 +1,4 @@
+import datetime
 import firebase_admin
 from firebase_admin import credentials, firestore
 from fastapi import FastAPI
@@ -35,10 +36,12 @@ class NuevoProducto(BaseModel):
     categoria: str = "Cafetería"
     lleva_leche: bool = False
     imagen: str = ""  # <-- Agregamos este campo
+
 class Pedido(BaseModel):
     mesa: int
     items: List[ItemPedido]
     notas: str = ""
+
 @app.get("/obtener_catalogo")
 async def obtener_catalogo():
     referencia = db.collection("productos").stream()
@@ -68,32 +71,60 @@ async def agregar_producto(producto: NuevoProducto):
     }
     db.collection("productos").add(nuevo_prod_db)
     return {"status": "éxito", "mensaje": "Producto agregado"}
+
+@app.delete("/borrar_producto/{producto_id}")
+async def borrar_producto(producto_id: str):
+    # Buscamos el documento por su ID exacto y lo eliminamos de la base de datos
+    db.collection("productos").document(producto_id).delete()
+    return {"status": "éxito", "mensaje": "Producto eliminado"}
+
+# ----- RUTAS DE PEDIDOS Y PANEL DE COCINA -----
+
 @app.post("/crear_pedido")
 async def recibir_pedido(pedido: Pedido):
     total_calculado = sum(item.cantidad * item.precio_unitario for item in pedido.items)
+    
+    # Obtenemos la hora actual en formato HH:MM
+    hora_actual = datetime.datetime.now().strftime("%H:%M")
     
     nuevo_pedido_db = {
         "mesa": pedido.mesa,
         "items": [item.model_dump() for item in pedido.items],
         "notas": pedido.notas,
         "total": total_calculado,
-        "estado": "pendiente"
+        "estado": "pendiente",  # Todo pedido nace como 'pendiente'
+        "hora": hora_actual     # Guardamos la hora
     }
 
-    # 2. Guardamos el pedido en la colección 'pedidos' de Firestore
-    # add() devuelve la fecha de creación y la referencia del documento creado
+    # Guardamos el pedido en la colección 'pedidos' de Firestore
     hora_creacion, ref_documento = db.collection("pedidos").add(nuevo_pedido_db)
     
     print(f"Pedido guardado en Firestore con ID: {ref_documento.id}")
-
     
     return {
         "status": "éxito",
         "mensaje": "Pedido enviado a la cocina",
         "pedido_id": ref_documento.id
     }
-@app.delete("/borrar_producto/{producto_id}")
-async def borrar_producto(producto_id: str):
-    # Buscamos el documento por su ID exacto y lo eliminamos de la base de datos
-    db.collection("productos").document(producto_id).delete()
-    return {"status": "éxito", "mensaje": "Producto eliminado"}
+
+@app.get("/obtener_pedidos")
+async def obtener_pedidos():
+    referencia = db.collection("pedidos").stream()
+    lista_pedidos = []
+    for doc in referencia:
+        pedido_db = doc.to_dict()
+        lista_pedidos.append({
+            "id": doc.id,
+            "mesa": pedido_db.get("mesa", 0),
+            "items": pedido_db.get("items", []),
+            "notas": pedido_db.get("notas", ""),
+            "estado": pedido_db.get("estado", "pendiente"),
+            "hora": pedido_db.get("hora", "")
+        })
+    return {"pedidos": lista_pedidos}
+
+@app.put("/actualizar_pedido/{pedido_id}/{nuevo_estado}")
+async def actualizar_pedido(pedido_id: str, nuevo_estado: str):
+    # Actualiza solamente el campo 'estado' de un pedido específico
+    db.collection("pedidos").document(pedido_id).update({"estado": nuevo_estado})
+    return {"status": "éxito"}
