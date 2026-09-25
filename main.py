@@ -31,6 +31,8 @@ class ItemPedido(BaseModel):
 class NuevoProducto(BaseModel):
     nombre: str
     precio: int
+    descripcion: str = ""
+    categoria: str = "Cafetería"
 
 class Pedido(BaseModel):
     mesa: int
@@ -38,29 +40,31 @@ class Pedido(BaseModel):
     notas: str = ""
 @app.get("/obtener_catalogo")
 async def obtener_catalogo():
-    # Leemos todos los documentos de la colección "productos"
     referencia = db.collection("productos").stream()
     
     lista_productos = []
     for doc in referencia:
         producto_db = doc.to_dict()
         lista_productos.append({
-            "producto": producto_db["nombre"],
-            "precio": producto_db["precio"]
+            "id": doc.id,
+            "producto": producto_db.get("nombre", "Sin nombre"),
+            "precio": producto_db.get("precio", 0),
+            "descripcion": producto_db.get("descripcion", ""),
+            "categoria": producto_db.get("categoria", "Cafetería")
         })
         
     return {"catalogo": lista_productos}
+        
 @app.post("/agregar_producto")
 async def agregar_producto(producto: NuevoProducto):
     nuevo_prod_db = {
         "nombre": producto.nombre,
-        "precio": producto.precio
+        "precio": producto.precio,
+        "descripcion": producto.descripcion,
+        "categoria": producto.categoria
     }
-    
-    # Guardamos el producto en la colección 'productos'
     db.collection("productos").add(nuevo_prod_db)
-    
-    return {"status": "éxito", "mensaje": f"Producto {producto.nombre} agregado al catálogo"}
+    return {"status": "éxito", "mensaje": "Producto agregado al catálogo"}
 @app.post("/crear_pedido")
 async def recibir_pedido(pedido: Pedido):
     total_calculado = sum(item.cantidad * item.precio_unitario for item in pedido.items)
@@ -72,15 +76,21 @@ async def recibir_pedido(pedido: Pedido):
         "total": total_calculado,
         "estado": "pendiente"
     }
-    
+
     # 2. Guardamos el pedido en la colección 'pedidos' de Firestore
     # add() devuelve la fecha de creación y la referencia del documento creado
     hora_creacion, ref_documento = db.collection("pedidos").add(nuevo_pedido_db)
     
     print(f"Pedido guardado en Firestore con ID: {ref_documento.id}")
+
     
     return {
         "status": "éxito",
         "mensaje": "Pedido enviado a la cocina",
         "pedido_id": ref_documento.id
     }
+@app.delete("/borrar_producto/{producto_id}")
+async def borrar_producto(producto_id: str):
+    # Buscamos el documento por su ID exacto y lo eliminamos de la base de datos
+    db.collection("productos").document(producto_id).delete()
+    return {"status": "éxito", "mensaje": "Producto eliminado"}
