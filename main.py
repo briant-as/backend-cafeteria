@@ -138,3 +138,12 @@ async def actualizar_pedido(pedido_id: str, nuevo_estado: str):
     # Actualiza solamente el campo 'estado' de un pedido específico
     db.collection("pedidos").document(pedido_id).update({"estado": nuevo_estado})
     return {"status": "éxito"}
+@app.delete("/limpiar_historial")
+async def limpiar_historial():
+    # Buscamos todos los pedidos y borramos solamente los que ya están entregados
+    referencia = db.collection("pedidos").stream()
+    for doc in referencia:
+        pedido = doc.to_dict()
+        if pedido.get("estado") == "entregado":
+            db.collection("pedidos").document(doc.id).delete()
+    return {"status": "éxito", "mensaje": "Historial limpio"}
