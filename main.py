@@ -29,6 +29,9 @@ class ItemPedido(BaseModel):
     cantidad: int
     precio_unitario: float
 
+class LoginRequest(BaseModel):
+    clave: str
+
 class NuevoProducto(BaseModel):
     nombre: str
     precio: int
@@ -58,6 +61,13 @@ async def obtener_catalogo():
             "imagen": producto_db.get("imagen", "") # <-- Lo leemos de Firestore
         })
     return {"catalogo": lista_productos}
+
+@app.post("/verificar_acceso")
+async def verificar_acceso(req: LoginRequest):
+    CLAVE_SECRETA = "admin123"  # <-- Acá podés cambiar la contraseña que quieras
+    if req.clave == CLAVE_SECRETA:
+        return {"acceso": True}
+    return {"acceso": False}
         
 @app.post("/agregar_producto")
 async def agregar_producto(producto: NuevoProducto):
